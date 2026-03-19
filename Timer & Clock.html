@@ -127,6 +127,57 @@
       .divider { width: 80%; height: 1px; }
       .panels { gap: 40px; }
     }
+
+    #volume-control {
+      position: fixed;
+      bottom: 16px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0.45;
+      transition: opacity 0.2s;
+    }
+    #volume-control:hover { opacity: 1; }
+    #volume-control label {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: #888;
+      white-space: nowrap;
+    }
+    #volume-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 90px;
+      height: 3px;
+      border-radius: 2px;
+      background: #444;
+      outline: none;
+      cursor: pointer;
+    }
+    #volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #60a5fa;
+      cursor: pointer;
+    }
+    #volume-slider::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #60a5fa;
+      border: none;
+      cursor: pointer;
+    }
+    #volume-pct {
+      font-size: 0.7rem;
+      color: #666;
+      width: 30px;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
@@ -165,6 +216,12 @@
 
 </div>
 
+<div id="volume-control">
+  <label>VOL</label>
+  <input type="range" id="volume-slider" min="0" max="150" value="100" step="1">
+  <span id="volume-pct">100%</span>
+</div>
+
 <script>
   // ── Clock ──────────────────────────────────────────────
   function updateClock() {
@@ -184,7 +241,37 @@
   setInterval(updateClock, 1000);
 
   // ── Timer ──────────────────────────────────────────────
-  let totalSeconds = 0;
+  const warnings = [
+    { ms: 30 * 60 * 1000, file: '30min_warning.mp3', fired: false },
+    { ms: 15 * 60 * 1000, file: '15min_warning.mp3', fired: false },
+    { ms:  5 * 60 * 1000, file:  '5min_warning.mp3', fired: false },
+  ];
+
+  const volumeSlider = document.getElementById('volume-slider');
+  const volumePct    = document.getElementById('volume-pct');
+  volumeSlider.addEventListener('input', () => {
+    volumePct.textContent = volumeSlider.value + '%';
+  });
+
+  function playWarning(file) {
+    const audio = new Audio(file);
+    audio.volume = Math.min(1, parseInt(volumeSlider.value) / 100);
+    if (parseInt(volumeSlider.value) > 100) {
+      // Boost via GainNode for >100%
+      const ctx = new AudioContext();
+      const src = ctx.createMediaElementSource(audio);
+      const gain = ctx.createGain();
+      gain.gain.value = parseInt(volumeSlider.value) / 100;
+      src.connect(gain);
+      gain.connect(ctx.destination);
+    }
+    audio.play().catch(() => {});
+  }
+
+  function resetWarnings() {
+    warnings.forEach(w => w.fired = false);
+  }
+
   let remainingMs = 0;
   let running = false;
   let intervalId = null;
@@ -225,6 +312,13 @@
     } else {
       remainingMs = left;
       display.textContent = formatTime(left);
+      // Fire warning sounds when crossing each threshold
+      for (const w of warnings) {
+        if (!w.fired && left <= w.ms) {
+          w.fired = true;
+          playWarning(w.file);
+        }
+      }
     }
   }
 
@@ -233,6 +327,7 @@
     if (remainingMs <= 0) {
       remainingMs = getInputSeconds();
       if (remainingMs <= 0) return;
+      resetWarnings();
     }
     running = true;
     display.className = 'display running';
@@ -253,6 +348,7 @@
     clearInterval(intervalId);
     running = false;
     remainingMs = 0;
+    resetWarnings();
     display.textContent = '00:00:00';
     display.className = 'display';
   });
