@@ -234,6 +234,7 @@
   <button onclick="playWarning('30min_warning.mp3')">30m</button>
   <button onclick="playWarning('15min_warning.mp3')">15m</button>
   <button onclick="playWarning('5min_warning.mp3')">5m</button>
+  <button onclick="(()=>{const a=new Audio('alarm.wav');a.volume=Math.min(1,parseInt(volumeSlider.value)/100);a.play().catch(()=>{});setTimeout(()=>{a.pause();a.currentTime=0;},3000);})()">ALM</button>
 </div>
 
 <div id="volume-control">
@@ -350,6 +351,18 @@
       clearInterval(intervalId);
       running = false;
       remainingMs = 0;
+      const alarm = new Audio('alarm.wav');
+      alarm.volume = Math.min(1, parseInt(volumeSlider.value) / 100);
+      if (parseInt(volumeSlider.value) > 100) {
+        const ctx  = new AudioContext();
+        const src  = ctx.createMediaElementSource(alarm);
+        const gain = ctx.createGain();
+        gain.gain.value = parseInt(volumeSlider.value) / 100;
+        src.connect(gain);
+        gain.connect(ctx.destination);
+      }
+      alarm.play().catch(() => {});
+      setTimeout(() => { alarm.pause(); alarm.currentTime = 0; }, 3000);
       let flashes = 0;
       const flash = setInterval(() => {
         display.style.opacity = display.style.opacity === '0' ? '1' : '0';
