@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timer &amp; Clock</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a1a;
+      color: #f0f0f0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 1.2rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: -20px;
+    }
+
+    .panels {
+      display: flex;
+      gap: 60px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .panel-label {
+      font-size: 0.85rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #666;
+    }
+
+    .display {
+      font-size: clamp(3rem, 10vw, 7rem);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      font-variant-numeric: tabular-nums;
+      color: #f0f0f0;
+      line-height: 1;
+    }
+
+    .display.running { color: #4ade80; }
+    .display.paused  { color: #facc15; }
+
+    /* Clock */
+    #clock-display { color: #60a5fa; }
+
+    /* Timer controls */
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      padding: 10px 24px;
+      border: 2px solid currentColor;
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    button:hover { background: rgba(255,255,255,0.08); }
+
+    #btn-start  { color: #4ade80; }
+    #btn-pause  { color: #facc15; }
+    #btn-reset  { color: #f87171; }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .input-row label { font-size: 0.8rem; color: #888; letter-spacing: 0.1em; }
+
+    .input-row input {
+      width: 60px;
+      padding: 6px 8px;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      color: #f0f0f0;
+      font-family: inherit;
+      font-size: 1rem;
+      text-align: center;
+    }
+
+    .input-row input:focus { outline: none; border-color: #60a5fa; }
+
+    .divider {
+      width: 1px;
+      height: 160px;
+      background: #333;
+      align-self: center;
+    }
+
+    @media (max-width: 600px) {
+      .divider { width: 80%; height: 1px; }
+      .panels { gap: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="panels">
+
+  <!-- TIMER -->
+  <div class="panel">
+    <span class="panel-label">Timer</span>
+    <div class="display" id="timer-display">00:00:00</div>
+
+    <div class="input-row">
+      <label>H</label>
+      <input type="number" id="input-h" min="0" max="99" value="1">
+      <label>M</label>
+      <input type="number" id="input-m" min="0" max="59" value="15">
+      <label>S</label>
+      <input type="number" id="input-s" min="0" max="59" value="0">
+    </div>
+
+    <div class="controls">
+      <button id="btn-start">Start</button>
+      <button id="btn-pause">Pause</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- CLOCK -->
+  <div class="panel">
+    <span class="panel-label">Clock</span>
+    <div class="display" id="clock-display">00:00:00</div>
+    <span style="font-size:0.8rem;color:#555;letter-spacing:0.1em" id="clock-date"></span>
+  </div>
+
+</div>
+
+<script>
+  // ── Clock ──────────────────────────────────────────────
+  function updateClock() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const h12 = now.getHours() % 12 || 12;
+    const ampm = now.getHours() < 12 ? 'AM' : 'PM';
+    document.getElementById('clock-display').textContent =
+      h12 + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + ' ' + ampm;
+
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    document.getElementById('clock-date').textContent =
+      days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate() + ' ' + now.getFullYear();
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── Timer ──────────────────────────────────────────────
+  let totalSeconds = 0;
+  let remainingMs = 0;
+  let running = false;
+  let intervalId = null;
+  let endTime = null;
+
+  const display = document.getElementById('timer-display');
+
+  function formatTime(ms) {
+    const totalSec = Math.ceil(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
+  }
+
+  function getInputSeconds() {
+    const h = parseInt(document.getElementById('input-h').value) || 0;
+    const m = parseInt(document.getElementById('input-m').value) || 0;
+    const s = parseInt(document.getElementById('input-s').value) || 0;
+    return (h * 3600 + m * 60 + s) * 1000;
+  }
+
+  function tick() {
+    const now = Date.now();
+    const left = endTime - now;
+    if (left <= 0) {
+      display.textContent = '00:00:00';
+      display.className = 'display';
+      clearInterval(intervalId);
+      running = false;
+      remainingMs = 0;
+      // Flash to signal done
+      let flashes = 0;
+      const flash = setInterval(() => {
+        display.style.opacity = display.style.opacity === '0' ? '1' : '0';
+        if (++flashes >= 8) { clearInterval(flash); display.style.opacity = '1'; }
+      }, 300);
+    } else {
+      remainingMs = left;
+      display.textContent = formatTime(left);
+    }
+  }
+
+  document.getElementById('btn-start').addEventListener('click', () => {
+    if (running) return;
+    if (remainingMs <= 0) {
+      remainingMs = getInputSeconds();
+      if (remainingMs <= 0) return;
+    }
+    running = true;
+    display.className = 'display running';
+    endTime = Date.now() + remainingMs;
+    intervalId = setInterval(tick, 250);
+    tick();
+  });
+
+  document.getElementById('btn-pause').addEventListener('click', () => {
+    if (!running) return;
+    clearInterval(intervalId);
+    running = false;
+    display.className = 'display paused';
+    remainingMs = Math.max(0, endTime - Date.now());
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    clearInterval(intervalId);
+    running = false;
+    remainingMs = 0;
+    display.textContent = '00:00:00';
+    display.className = 'display';
+  });
+</script>
+</body>
+</html>
