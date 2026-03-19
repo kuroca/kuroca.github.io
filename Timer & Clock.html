@@ -381,7 +381,10 @@
     running = false;
     remainingMs = 0;
     resetWarnings();
-    display.textContent = '00:00:00';
+    document.getElementById('input-h').value = 1;
+    document.getElementById('input-m').value = 15;
+    document.getElementById('input-s').value = 0;
+    display.textContent = '01:15:00';
     display.className = 'display';
   });
 </script>
